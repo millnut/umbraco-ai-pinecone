@@ -1,0 +1,15 @@
+{
+  "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "AuthorDetails": {
+    "Name": "Lee Mills",
+    "ImageUrl": "https://github.com/millnut.png"
+  },
+  "Category": "Artificial Intelligence",
+  "Description": "An Umbraco AI embeddings provider for Pinecone's hosted embedding models. Use Pinecone instead to generate the vectors behind Umbraco AI Search, with the right query and passage embeddings for each.",
+  "LicenseTypes": [ "Free" ],
+  "IssueTrackerUrl": "https://github.com/millnut/umbraco-ai-pinecone/issues",
+  "PackageType": "Package",
+  "Screenshots": [],
+  "Tags": [ "ai", "embeddings", "pinecone", "search" ],
+  "Title": "Pinecone Provider for Umbraco AI"
+}

@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Umbraco.Community.AI.Pinecone</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Audit hits come from the transitive packages of our minimum Umbraco version, which a site upgrades
+         by running a newer 18.x. Keep them visible, but don't let them fail the build. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Public types are documented where it helps; don't fail the build over every member -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Product>Umbraco.Community.AI.Pinecone</Product>
+    <PackageId>Umbraco.Community.AI.Pinecone</PackageId>
+    <Title>Pinecone Provider for Umbraco AI</Title>
+    <Description>An Umbraco AI embeddings provider that generates vectors with Pinecone's hosted embedding models, so Umbraco AI Search and anything else that needs embeddings can use Pinecone.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;umbraco-ai;pinecone;embeddings</PackageTags>
+    <Authors>Lee Mills</Authors>
+    <Copyright>$([System.DateTime]::UtcNow.ToString(`yyyy`)) © Lee Mills</Copyright>
+    <PackageProjectUrl>https://github.com/millnut/umbraco-ai-pinecone</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/millnut/umbraco-ai-pinecone</RepositoryUrl>
+    <PackageReadmeFile>README_nuget.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Umbraco.AI.Core" />
+    <!-- Only for UmbracoAIComposer, so the composer can run after Umbraco AI registers its services -->
+    <PackageReference Include="Umbraco.AI.Startup" />
+    <PackageReference Include="Pinecone.Client" />
+    <!-- Lifts Pinecone.Client's transitive Grpc.Net.ClientFactory past the known Http.Resilience conflict -->
+    <PackageReference Include="Grpc.Net.ClientFactory" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\docs\README_nuget.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\docs\assets\icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <InternalsVisibleTo Include="Umbraco.Community.AI.Pinecone.Tests" />
+  </ItemGroup>
+
+</Project>
