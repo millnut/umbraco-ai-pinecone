@@ -51,6 +51,10 @@ Pinecone embeds search queries and indexed content differently, and needs to be 
 
 If your own code embeds content one item at a time, set it yourself with `EmbeddingGenerationOptions.AdditionalProperties["input_type"] = "passage"` (or `"query"`). An explicit value always wins.
 
+## Data processing
+
+Whatever Umbraco AI asks this provider to embed is sent to Pinecone's API. With Umbraco AI Search, that's the text of published content and media (including protected pages) and every search query. If any of it can contain personal data, Pinecone is a data processor for your site, so cover it in your data processing agreement and privacy notice. The package stores nothing itself and never logs the text it sends.
+
 ## Known limitations
 
 - Umbraco AI Search chunks content by word count (512 words by default). That's fine for `llama-text-embed-v2`, but over `multilingual-e5-large`'s 507-token limit, so with e5 set `Umbraco:AI:Search:ChunkSize` to about 350.

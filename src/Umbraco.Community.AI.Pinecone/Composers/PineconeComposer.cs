@@ -20,7 +20,7 @@ public sealed class PineconeComposer : IComposer
         IConfigurationSection section = builder.Config.GetSection(PineconeOptions.SectionName);
         builder.Services.AddOptions<PineconeOptions>().Bind(section);
 
-        builder.Services.AddHttpClient(PineconeConstants.HttpClientName);
+        builder.Services.AddHttpClient(PineconeConstants.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
 
         // Read once here rather than through IOptions because it decides what gets registered at all.
         if ((section.Get<PineconeOptions>() ?? new PineconeOptions()).InferInputType)

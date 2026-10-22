@@ -29,6 +29,11 @@ internal sealed class FakePineconeHandler : HttpMessageHandler
 
     public IEnumerable<RecordedRequest> ModelsRequests => Requests.Where(r => r.Path == "/models");
 
+    /// <summary>
+    /// Responses to send, in order, before answering normally. Used to simulate failures that later clear.
+    /// </summary>
+    public Queue<HttpResponseMessage> FailNext { get; } = [];
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
@@ -37,8 +42,14 @@ internal sealed class FakePineconeHandler : HttpMessageHandler
             request.RequestUri!.AbsolutePath,
             request.RequestUri.Query,
             request.Headers.TryGetValues("Api-Key", out var keys) ? keys.Single() : null,
+            request.Headers.TryGetValues("X-Pinecone-Api-Version", out var versions) ? versions.Single() : null,
             body);
         Requests.Add(recorded);
+
+        if (FailNext.TryDequeue(out HttpResponseMessage? failure))
+        {
+            return failure;
+        }
 
         return recorded.Path switch
         {
@@ -82,7 +93,7 @@ internal sealed class FakePineconeHandler : HttpMessageHandler
     private static HttpResponseMessage Json(string json)
         => new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 
-    internal sealed record RecordedRequest(HttpMethod Method, string Path, string Query, string? ApiKey, string? Body)
+    internal sealed record RecordedRequest(HttpMethod Method, string Path, string Query, string? ApiKey, string? ApiVersion, string? Body)
     {
         public JsonDocument? Json { get; } = Body is null ? null : JsonDocument.Parse(Body);
 

@@ -1,6 +1,6 @@
 using System.Net;
-using Pinecone;
 using Umbraco.AI.Core.Providers.Errors;
+using Umbraco.Community.AI.Pinecone.Client;
 using Umbraco.Community.AI.Pinecone.Tests.Fakes;
 
 namespace Umbraco.Community.AI.Pinecone.Tests;
@@ -25,7 +25,7 @@ public class PineconeProviderTests
     {
         var provider = TestProvider.Create(new FakePineconeHandler());
 
-        var info = provider.ClassifyError(new PineconeApiException("failed", status, (object)"body"));
+        var info = provider.ClassifyError(new PineconeException("failed", (HttpStatusCode)status));
 
         Assert.Equal(expected, info.Category);
     }

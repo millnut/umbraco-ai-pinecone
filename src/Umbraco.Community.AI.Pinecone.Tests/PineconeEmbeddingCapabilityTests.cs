@@ -1,7 +1,8 @@
+using System.Net;
 using Microsoft.Extensions.AI;
-using Pinecone;
 using Umbraco.AI.Core.Models;
 using Umbraco.AI.Core.Providers;
+using Umbraco.Community.AI.Pinecone.Client;
 using Umbraco.Community.AI.Pinecone.Tests.Fakes;
 
 namespace Umbraco.Community.AI.Pinecone.Tests;
@@ -60,7 +61,8 @@ public class PineconeEmbeddingCapabilityTests
         _handler.RejectApiKey = true;
         IAICapability capability = CreateCapability();
 
-        await Assert.ThrowsAsync<UnauthorizedError>(() => capability.GetModelsAsync(TestProvider.Settings(), cancellationToken: TestContext.Current.CancellationToken));
+        PineconeException exception = await Assert.ThrowsAsync<PineconeException>(() => capability.GetModelsAsync(TestProvider.Settings(), cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, exception.StatusCode);
 
         // Nothing is cached, so fixing the key works straight away
         _handler.RejectApiKey = false;
@@ -77,7 +79,21 @@ public class PineconeEmbeddingCapabilityTests
         await capability.GetModelsAsync(TestProvider.Settings(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(_handler.ModelsRequests);
-        Assert.Single(_handler.EmbedRequests);
+    }
+
+    [Fact]
+    public async Task The_key_is_checked_every_time_even_when_the_list_is_cached()
+    {
+        IAICapability capability = CreateCapability();
+        await capability.GetModelsAsync(TestProvider.Settings(), cancellationToken: TestContext.Current.CancellationToken);
+
+        // The key is revoked in Pinecone after the list was cached
+        _handler.RejectApiKey = true;
+        PineconeException exception = await Assert.ThrowsAsync<PineconeException>(() => capability.GetModelsAsync(TestProvider.Settings(), cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, exception.StatusCode);
+        Assert.Equal(2, _handler.EmbedRequests.Count());
+        Assert.Single(_handler.ModelsRequests);
     }
 
     [Fact]
@@ -85,7 +101,7 @@ public class PineconeEmbeddingCapabilityTests
     {
         IAICapability capability = CreateCapability();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => capability.GetModelsAsync(new PineconeProviderSettings(), cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<PineconeException>(() => capability.GetModelsAsync(new PineconeProviderSettings(), cancellationToken: TestContext.Current.CancellationToken));
         Assert.Empty(_handler.Requests);
     }
 

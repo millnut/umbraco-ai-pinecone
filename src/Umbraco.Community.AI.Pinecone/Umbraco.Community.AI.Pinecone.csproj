@@ -33,9 +33,6 @@
     <PackageReference Include="Umbraco.AI.Core" />
     <!-- Only for UmbracoAIComposer, so the composer can run after Umbraco AI registers its services -->
     <PackageReference Include="Umbraco.AI.Startup" />
-    <PackageReference Include="Pinecone.Client" />
-    <!-- Lifts Pinecone.Client's transitive Grpc.Net.ClientFactory past the known Http.Resilience conflict -->
-    <PackageReference Include="Grpc.Net.ClientFactory" />
   </ItemGroup>
 
   <ItemGroup>

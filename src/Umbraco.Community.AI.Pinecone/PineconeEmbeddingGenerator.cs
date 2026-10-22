@@ -1,6 +1,6 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using Pinecone;
+using Umbraco.Community.AI.Pinecone.Client;
 
 namespace Umbraco.Community.AI.Pinecone;
 
@@ -8,18 +8,18 @@ namespace Umbraco.Community.AI.Pinecone;
 /// An <see cref="IEmbeddingGenerator{TInput, TEmbedding}"/> over Pinecone's embed endpoint.
 /// </summary>
 /// <remarks>
-/// Rate limits (429) and server errors are retried with backoff by the Pinecone SDK itself. Each request is
+/// Rate limits (429) and server errors are retried with backoff by <see cref="PineconeInferenceClient"/>. Each request is
 /// logged at Debug level with its model, input count and input type; the inputs and the API key are not.
 /// </remarks>
 internal sealed class PineconeEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<float>>
 {
-    private readonly PineconeClient _client;
+    private readonly PineconeInferenceClient _client;
     private readonly string _modelId;
     private readonly string? _truncate;
     private readonly EmbeddingGeneratorMetadata _metadata;
     private readonly ILogger? _logger;
 
-    public PineconeEmbeddingGenerator(PineconeClient client, string modelId, string? truncate, ILogger? logger = null)
+    public PineconeEmbeddingGenerator(PineconeInferenceClient client, string modelId, string? truncate, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
@@ -57,38 +57,34 @@ internal sealed class PineconeEmbeddingGenerator : IEmbeddingGenerator<string, E
 
         foreach (string[] batch in inputs.Chunk(PineconeConstants.MaxBatchSize))
         {
-            EmbeddingsList response = await _client.Inference.EmbedAsync(
-                new EmbedRequest
-                {
-                    Model = modelId,
-                    Inputs = batch.Select(text => new EmbedRequestInputsItem { Text = text }).ToList(),
-                    Parameters = parameters,
-                },
-                cancellationToken: cancellationToken);
+            EmbedResponse response = await _client.EmbedAsync(
+                new EmbedRequest(modelId, parameters, batch.Select(text => new EmbedInput(text)).ToList()),
+                cancellationToken).ConfigureAwait(false);
 
-            var data = response.Data.ToList();
+            List<EmbeddingData> data = response.Data ?? [];
             if (data.Count != batch.Length)
             {
                 throw new InvalidOperationException(
                     $"Pinecone returned {data.Count} embeddings for {batch.Length} inputs.");
             }
 
-            foreach (var embedding in data)
+            foreach (EmbeddingData embedding in data)
             {
-                if (!embedding.IsDense)
+                // Sparse models send sparse_values instead of values.
+                if (embedding.Values is null || IsSparse(response.VectorType) || IsSparse(embedding.VectorType))
                 {
                     throw new InvalidOperationException(
                         $"Pinecone model '{modelId}' returned sparse embeddings. Choose a dense embedding model.");
                 }
 
-                result.Add(new Embedding<float>(embedding.AsDense().Values)
+                result.Add(new Embedding<float>(embedding.Values)
                 {
                     ModelId = response.Model,
                     CreatedAt = DateTimeOffset.UtcNow,
                 });
             }
 
-            if (response.Usage.TotalTokens is { } tokens)
+            if (response.Usage?.TotalTokens is { } tokens)
             {
                 totalTokens += tokens;
                 hasUsage = true;
@@ -129,6 +125,8 @@ internal sealed class PineconeEmbeddingGenerator : IEmbeddingGenerator<string, E
     {
         // The HttpClient comes from IHttpClientFactory, which owns its lifetime.
     }
+
+    private static bool IsSparse(string? vectorType) => string.Equals(vectorType, "sparse", StringComparison.OrdinalIgnoreCase);
 
     private Dictionary<string, object?> BuildParameters(EmbeddingGenerationOptions? options)
     {

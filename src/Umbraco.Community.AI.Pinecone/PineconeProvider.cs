@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Caching.Memory;
-using Pinecone;
-using Pinecone.Inference;
+using Microsoft.Extensions.Logging;
 using Umbraco.AI.Core.Providers;
 using Umbraco.AI.Core.Providers.Errors;
+using Umbraco.Community.AI.Pinecone.Client;
 
 namespace Umbraco.Community.AI.Pinecone;
 
@@ -15,87 +15,75 @@ namespace Umbraco.Community.AI.Pinecone;
 [AIProvider(PineconeConstants.ProviderId, PineconeConstants.ProviderName)]
 public class PineconeProvider : AIProviderBase<PineconeProviderSettings>
 {
-    private const string CacheKeyPrefix = "Pinecone_EmbeddingModels_";
+    private const string CacheKey = "Pinecone_EmbeddingModels";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
 
     private readonly IMemoryCache _cache;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<PineconeInferenceClient> _clientLogger;
 
     public PineconeProvider(
         IAIProviderInfrastructure infrastructure,
         IMemoryCache cache,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        ILoggerFactory loggerFactory)
         : base(infrastructure)
     {
         _cache = cache;
         _httpClientFactory = httpClientFactory;
+        _clientLogger = loggerFactory.CreateLogger<PineconeInferenceClient>();
         WithCapability<PineconeEmbeddingCapability>();
     }
 
     /// <inheritdoc />
     public override AIProviderErrorInfo ClassifyError(Exception exception)
-        => exception is PineconeApiException apiException
-            ? ProviderErrorMapping.FromHttpStatus(apiException.StatusCode, apiException.Message)
+        => exception is PineconeException { StatusCode: { } statusCode }
+            ? ProviderErrorMapping.FromHttpStatus((int)statusCode, exception.Message)
             : base.ClassifyError(exception);
 
     /// <summary>
-    /// Creates a client for the connection's API key.
+    /// Creates a client for the connection's API key. Throws <see cref="PineconeException"/> when there is no key.
     /// </summary>
-    internal PineconeClient CreateClient(PineconeProviderSettings settings)
-    {
-        // Checked here because the SDK silently falls back to the PINECONE_API_KEY environment variable
-        // when given no key, which would use an account the connection never named.
-        if (string.IsNullOrWhiteSpace(settings.ApiKey))
-        {
-            throw new InvalidOperationException("A Pinecone API key is required.");
-        }
-
-        return new PineconeClient(settings.ApiKey, new ClientOptions
-        {
-            HttpClient = _httpClientFactory.CreateClient(PineconeConstants.HttpClientName),
-        });
-    }
+    internal PineconeInferenceClient CreateClient(PineconeProviderSettings settings)
+        => new(_httpClientFactory.CreateClient(PineconeConstants.HttpClientName), settings.ApiKey, _clientLogger);
 
     /// <summary>
-    /// Lists Pinecone's dense embedding models, cached per API key, after checking the key works.
+    /// Checks the API key works, then lists Pinecone's dense embedding models.
     /// </summary>
     /// <remarks>
     /// Testing a connection in the backoffice lists models, so this is what validates the key. Pinecone's
-    /// models endpoint is public and accepts any key, so a one-word embed request does the checking. It
-    /// costs a token or two, and only when the list isn't cached.
+    /// models endpoint is public and accepts any key, so a one-word embed request does the checking, costing a
+    /// token or two. It runs every time, so a revoked key fails straight away. Only the model list, which is
+    /// the same for every key, is cached.
     /// </remarks>
     internal async Task<IReadOnlyList<string>> GetEmbeddingModelIdsAsync(
         PineconeProviderSettings settings,
         CancellationToken cancellationToken = default)
     {
-        PineconeClient client = CreateClient(settings);
+        PineconeInferenceClient client = CreateClient(settings);
 
-        var cacheKey = $"{CacheKeyPrefix}{settings.ApiKey!.GetHashCode()}";
-        if (_cache.TryGetValue<IReadOnlyList<string>>(cacheKey, out var cachedModels) && cachedModels is not null)
+        await client.EmbedAsync(
+            new EmbedRequest(
+                PineconeConstants.DefaultEmbeddingModel,
+                new Dictionary<string, object?> { ["input_type"] = PineconeConstants.InputTypes.Query },
+                [new EmbedInput("test")]),
+            cancellationToken);
+
+        if (_cache.TryGetValue<IReadOnlyList<string>>(CacheKey, out var cachedModels) && cachedModels is not null)
         {
             return cachedModels;
         }
 
-        await client.Inference.EmbedAsync(
-            new EmbedRequest
-            {
-                Model = PineconeConstants.DefaultEmbeddingModel,
-                Inputs = [new EmbedRequestInputsItem { Text = "test" }],
-                Parameters = new Dictionary<string, object?> { ["input_type"] = PineconeConstants.InputTypes.Query },
-            },
-            cancellationToken: cancellationToken);
+        IReadOnlyList<ModelInfo> models = await client.ListEmbeddingModelsAsync(cancellationToken);
 
-        ModelInfoList result = await client.Inference.Models.ListAsync(
-            new ListModelsRequest { Type = ModelType.Embed, VectorType = VectorType.Dense },
-            cancellationToken: cancellationToken);
-
-        IReadOnlyList<string> modelIds = (result.Models ?? [])
-            .Where(m => m.Type == ModelType.Embed && m.VectorType == VectorType.Dense)
+        IReadOnlyList<string> modelIds = models
+            .Where(m => string.Equals(m.Type, "embed", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(m.VectorType, "dense", StringComparison.OrdinalIgnoreCase))
             .Select(m => m.Model)
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToList();
 
-        _cache.Set(cacheKey, modelIds, CacheDuration);
+        _cache.Set(CacheKey, modelIds, CacheDuration);
 
         return modelIds;
     }

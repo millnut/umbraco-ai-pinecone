@@ -65,7 +65,8 @@ public class PineconeIntegrationTests
         => new(
             new FakeProviderInfrastructure(),
             new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
-            new RealHttpClientFactory());
+            new RealHttpClientFactory(),
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
     private sealed class RealHttpClientFactory : IHttpClientFactory
     {
