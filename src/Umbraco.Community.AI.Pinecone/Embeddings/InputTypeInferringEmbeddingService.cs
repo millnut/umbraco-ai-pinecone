@@ -40,63 +40,17 @@ internal sealed class InputTypeInferringEmbeddingService(IAIEmbeddingService inn
         CancellationToken cancellationToken = default)
         => inner.CreateEmbeddingGeneratorAsync(configure, cancellationToken);
 
-#pragma warning disable CS0618 // Obsolete members - passing the deprecated interface methods through
-
-    public Task<Embedding<float>> GenerateEmbeddingAsync(
-        string value,
-        EmbeddingGenerationOptions? options = null,
-        CancellationToken cancellationToken = default)
-        => inner.GenerateEmbeddingAsync(value, WithHint(options, PineconeConstants.InputTypes.Query), cancellationToken);
-
-    public Task<Embedding<float>> GenerateEmbeddingAsync(
-        Guid profileId,
-        string value,
-        EmbeddingGenerationOptions? options = null,
-        CancellationToken cancellationToken = default)
-        => inner.GenerateEmbeddingAsync(profileId, value, WithHint(options, PineconeConstants.InputTypes.Query), cancellationToken);
-
-    public Task<GeneratedEmbeddings<Embedding<float>>> GenerateEmbeddingsAsync(
-        IEnumerable<string> values,
-        EmbeddingGenerationOptions? options = null,
-        CancellationToken cancellationToken = default)
-        => inner.GenerateEmbeddingsAsync(values, WithHint(options, PineconeConstants.InputTypes.Passage), cancellationToken);
-
-    public Task<GeneratedEmbeddings<Embedding<float>>> GenerateEmbeddingsAsync(
-        Guid profileId,
-        IEnumerable<string> values,
-        EmbeddingGenerationOptions? options = null,
-        CancellationToken cancellationToken = default)
-        => inner.GenerateEmbeddingsAsync(profileId, values, WithHint(options, PineconeConstants.InputTypes.Passage), cancellationToken);
-
-    public Task<IEmbeddingGenerator<string, Embedding<float>>> GetEmbeddingGeneratorAsync(
-        Guid? profileId = null,
-        CancellationToken cancellationToken = default)
-        => inner.GetEmbeddingGeneratorAsync(profileId, cancellationToken);
-
-#pragma warning restore CS0618
-
     private static Action<AIEmbeddingBuilder> WithHint(Action<AIEmbeddingBuilder> configure, string inputType)
     {
         ArgumentNullException.ThrowIfNull(configure);
 
         return builder =>
         {
-            builder.WithEmbeddingOptions(WithHint(options: null, inputType));
+            builder.WithEmbeddingOptions(new EmbeddingGenerationOptions
+            {
+                AdditionalProperties = new() { [PineconeConstants.InputTypeOptionKey] = inputType },
+            });
             configure(builder);
         };
-    }
-
-    private static EmbeddingGenerationOptions WithHint(EmbeddingGenerationOptions? options, string inputType)
-    {
-        // Copy so the caller's options are never mutated, and keep anything they already set.
-        EmbeddingGenerationOptions hinted = options?.Clone() ?? new EmbeddingGenerationOptions();
-        hinted.AdditionalProperties = hinted.AdditionalProperties?.Clone() ?? [];
-
-        if (!hinted.AdditionalProperties.ContainsKey(PineconeConstants.InputTypeOptionKey))
-        {
-            hinted.AdditionalProperties[PineconeConstants.InputTypeOptionKey] = inputType;
-        }
-
-        return hinted;
     }
 }

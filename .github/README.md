@@ -8,7 +8,7 @@ An [Umbraco AI](https://github.com/umbraco/Umbraco.AI) provider that generates e
 
 This is a community package. It is not made or supported by Umbraco HQ or Pinecone.
 
-Requires Umbraco 18 (.NET 10) and Umbraco AI 18.6 or later.
+Requires Umbraco 19 (.NET 11) and Umbraco AI 19.0.0 or later.
 
 ## Install
 

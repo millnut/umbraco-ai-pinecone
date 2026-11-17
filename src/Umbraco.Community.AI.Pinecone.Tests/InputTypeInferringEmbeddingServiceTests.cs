@@ -47,44 +47,6 @@ public class InputTypeInferringEmbeddingServiceTests
         Assert.Same(configure, _inner.LastConfigure);
     }
 
-#pragma warning disable CS0618 // The deprecated overloads are still part of the interface the decorator implements
-
-    [Fact]
-    public async Task Legacy_overloads_are_tagged_and_keep_the_callers_properties()
-    {
-        var callerOptions = new EmbeddingGenerationOptions
-        {
-            Dimensions = 256,
-            AdditionalProperties = new() { ["custom"] = "value" },
-        };
-
-        await Service.GenerateEmbeddingAsync("text", callerOptions, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal("query", InferredInputType());
-        Assert.Equal(256, _inner.LastOptions?.Dimensions);
-        Assert.Equal("value", _inner.LastOptions?.AdditionalProperties?["custom"]);
-
-        await Service.GenerateEmbeddingsAsync(Guid.NewGuid(), ["a", "b"], cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal("passage", InferredInputType());
-
-        // The caller's instance is never changed
-        Assert.False(callerOptions.AdditionalProperties.ContainsKey(PineconeConstants.InputTypeOptionKey));
-    }
-
-    [Fact]
-    public async Task Legacy_overloads_keep_an_inferred_type_the_caller_already_set()
-    {
-        var callerOptions = new EmbeddingGenerationOptions
-        {
-            AdditionalProperties = new() { [PineconeConstants.InputTypeOptionKey] = "passage" },
-        };
-
-        await Service.GenerateEmbeddingAsync("text", callerOptions, cancellationToken: TestContext.Current.CancellationToken);
-
-        Assert.Equal("passage", InferredInputType());
-    }
-
-#pragma warning restore CS0618
-
     [Fact]
     public void Decorating_wraps_the_registered_service_and_keeps_its_lifetime()
     {

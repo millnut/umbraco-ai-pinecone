@@ -43,47 +43,12 @@ internal sealed class RecordingEmbeddingService : IAIEmbeddingService
         return Task.FromException<IEmbeddingGenerator<string, Embedding<float>>>(new NotSupportedException());
     }
 
-    public Task<Embedding<float>> GenerateEmbeddingAsync(string value, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        Record("Legacy" + nameof(GenerateEmbeddingAsync), options);
-        return Task.FromResult(new Embedding<float>(new float[] { 1 }));
-    }
-
-    public Task<Embedding<float>> GenerateEmbeddingAsync(Guid profileId, string value, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        Record("LegacyProfile" + nameof(GenerateEmbeddingAsync), options);
-        return Task.FromResult(new Embedding<float>(new float[] { 1 }));
-    }
-
-    public Task<GeneratedEmbeddings<Embedding<float>>> GenerateEmbeddingsAsync(IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        Record("Legacy" + nameof(GenerateEmbeddingsAsync), options);
-        return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>());
-    }
-
-    public Task<GeneratedEmbeddings<Embedding<float>>> GenerateEmbeddingsAsync(Guid profileId, IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        Record("LegacyProfile" + nameof(GenerateEmbeddingsAsync), options);
-        return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>());
-    }
-
-    public Task<IEmbeddingGenerator<string, Embedding<float>>> GetEmbeddingGeneratorAsync(Guid? profileId = null, CancellationToken cancellationToken = default)
-    {
-        LastCall = nameof(GetEmbeddingGeneratorAsync);
-        return Task.FromException<IEmbeddingGenerator<string, Embedding<float>>>(new NotSupportedException());
-    }
-
     private void Record(string call, Action<AIEmbeddingBuilder> configure)
     {
         var builder = new AIEmbeddingBuilder();
         configure(builder);
-        Record(call, (EmbeddingGenerationOptions?)EmbeddingOptionsProperty.GetValue(builder));
-        LastConfigure = configure;
-    }
-
-    private void Record(string call, EmbeddingGenerationOptions? options)
-    {
         LastCall = call;
-        LastOptions = options;
+        LastOptions = (EmbeddingGenerationOptions?)EmbeddingOptionsProperty.GetValue(builder);
+        LastConfigure = configure;
     }
 }
